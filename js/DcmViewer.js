@@ -24,7 +24,7 @@ DcmViewer.prototype.init = function() {
 };
 
 /**
- * 
+ *
  * @param {String} toolName Sets the current tool of the toolbox by using the name of it. See Toolbox.js.
  */
 DcmViewer.prototype.setCurrentTool = function(toolName) {
@@ -75,7 +75,7 @@ DcmViewer.prototype.inputHandler = function(e) {
     var fileList = e.target.files;
     var dcmList = [];
     this.parsedFileList = [];
-    
+
     // only Dicom files
     for(var i = 0, len = fileList.length; i < len; i++) {
         if(fileList[i].type === "application/dicom") {
@@ -92,9 +92,128 @@ DcmViewer.prototype.inputHandler = function(e) {
     });
 };
 
+DcmViewer.prototype.file_system_api_test = function(e) {
+
+    window.requestFileSystem  = window.requestFileSystem || window.webkitRequestFileSystem;
+
+    window.requestFileSystem(
+        window.PERSISTENT,
+        100*1024*1024 /*5MB*/,
+        function onInitFs(fs) {
+            console.log('Opened file system: ' + fs.name);
+
+            fs.root.getFile('dicom.dcm', {create: true}, function(fileEntry) {
+
+                // Create a FileWriter object for our FileEntry (log.txt).
+                fileEntry.createWriter(function(fileWriter) {
+
+                    fileWriter.onwriteend = function(e) {
+                        console.log('Write completed.');
+                    };
+
+                    fileWriter.onerror = function(e) {
+                        console.log('Write failed: ' + e.toString());
+                    };
+
+                    host = encodeURI($("#host").val());
+
+                    console.log(host);
+
+                    $.ajax({
+                        url: "http://macrocro.com:9292/get-dicom",
+                        method: 'GET',
+                        cache: false,
+                        data: "host="+host,
+                        success: function(data) {
+                            // // Create a new Blob and write it to log.txt.
+                            var bb = new Blob(Array(data));
+                            fileWriter.write(bb);
+                            fileEntry.file(function(file){
+                                var self = window.dcmViewer;
+
+                                // var fileList = e.target.files;
+                                var dcmList = [];
+                                self.parsedFileList = [];
+
+                                dcmList.push(file);
+
+                                // parse files
+                                // window.dcmViewer.fileParser.parseFiles(dcmList, function(e) {
+                                //     self.parsedFileList = e;
+                                //     // render them in a tree
+                                //     self.tree.render(self.parsedFileList);
+                                // });
+                                DcmViewer.fileParser.parseFiles(dcmList, function(e) {
+                                    DcmViewer.parsedFileList = e;
+                                    // render them in a tree
+                                    DcmViewer.tree.render(self.parsedFileList);
+                                });
+                            });
+
+                            // //console.log(fileEntry.toURL());
+
+                            // fileEntry.file(function(file){
+                            //     // var fileList = e.target.files;
+                            //     var dcmList = [];
+                            //     self.parsedFileList = [];
+
+                            //     dcmList.push(file);
+
+                            //     console.log(self);
+
+                            //     // parse files
+                            //     self.fileParser.parseFiles(dcmList, function(e) {
+                            //         tmp_self.parsedFileList = e;
+                            //         // render them in a tree
+                            //         tmp_self.tree.render(self.parsedFileList);
+                            //     });
+                            // });
+                        },
+                        error: function(xhr, ajaxOptions, thrownError){
+                            console.log(xhr.status);
+                            console.log(thrownError);
+                        }
+                    });
+                }, errorHandler);
+            }, errorHandler);
+        } , errorHandler);
+
+    function errorHandler(e) {
+        var msg = '';
+
+        switch (e.code) {
+        case FileError.QUOTA_EXCEEDED_ERR:
+            msg = 'QUOTA_EXCEEDED_ERR';
+            break;
+        case FileError.NOT_FOUND_ERR:
+            msg = 'NOT_FOUND_ERR';
+            break;
+        case FileError.SECURITY_ERR:
+            msg = 'SECURITY_ERR';
+            break;
+        case FileError.INVALID_MODIFICATION_ERR:
+            msg = 'INVALID_MODIFICATION_ERR';
+            break;
+        case FileError.INVALID_STATE_ERR:
+            msg = 'INVALID_STATE_ERR';
+            break;
+        default:
+            msg = 'Unknown Error';
+            break;
+        };
+
+        console.log('Error: ' + msg);
+    }
+
+
+
+
+
+};
+
 /**
  * Handles click, mousemove, mousedown, mouseup, mouseout, mousewhell and scroll events of the viewer and passes the event to the current tool of the toolbox.
- * @param {Event} e 
+ * @param {Event} e
  */
 DcmViewer.prototype.eventHandler = function(e) {
     if(this.eventsEnabled) {
@@ -218,7 +337,7 @@ DcmViewer.prototype.matrixHandler = function(e) {
 };
 
 /**
- * Resets all painters. 
+ * Resets all painters.
  */
 DcmViewer.prototype.resetHandler = function() {
     if(this.eventsEnabled) {
@@ -251,7 +370,7 @@ DcmViewer.prototype.openMetaDialog = function() {
     // alphabetical sort
     var sortObject = function(o) {
         var sorted = {},
-                key, a = [];
+        key, a = [];
 
         for(key in o) {
             if(o.hasOwnProperty(key)) {
@@ -285,7 +404,7 @@ DcmViewer.prototype.openMetaDialog = function() {
     var body = document.createElement('tbody');
 
     $.each(file, function(key, value) {
-        if(!$.isFunction(value)) { 
+        if(!$.isFunction(value)) {
             var currentRow = document.createElement("tr");
             var cell1 = document.createElement("td");
             var text1 = document.createTextNode(key);
